@@ -2,6 +2,7 @@ import { GoogleSignin, isErrorWithCode, isSuccessResponse, statusCodes } from '@
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { supabase } from '@/lib/supabase';
 import { useSession } from '@/hooks/useSession';
 
 export default function SignInWebScreen() {
@@ -24,6 +25,10 @@ export default function SignInWebScreen() {
       setErrorMessage('Missing env: EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID');
       return;
     }
+    if (!supabase) {
+      setErrorMessage('Missing env: EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_ANON_KEY');
+      return;
+    }
 
     try {
       setIsSubmitting(true);
@@ -35,14 +40,30 @@ export default function SignInWebScreen() {
         return;
       }
 
-      const sessionLabel = response.data.user.email || response.data.user.name || 'google-user';
+      if (!response.data.idToken) {
+        setErrorMessage('Google idToken was not returned.');
+        return;
+      }
+
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: response.data.idToken,
+      });
+
+      if (error) {
+        setErrorMessage(error.message || 'Supabase sign-in failed.');
+        return;
+      }
+
+      const sessionLabel =
+        data.user?.email || response.data.user.email || response.data.user.name || 'google-user';
       signInWithGoogle(sessionLabel);
     } catch (error) {
       if (isErrorWithCode(error) && error.code === statusCodes.SIGN_IN_CANCELLED) {
         return;
       }
 
-      setErrorMessage('Google sign-in failed. Check EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID.');
+      setErrorMessage('Google or Supabase sign-in failed. Check env values and provider settings.');
     } finally {
       setIsSubmitting(false);
     }

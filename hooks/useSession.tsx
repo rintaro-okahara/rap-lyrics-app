@@ -1,4 +1,6 @@
-import { createContext, PropsWithChildren, useContext, useMemo, useState } from 'react';
+import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
+
+import { supabase } from '@/lib/supabase';
 
 type SessionContextValue = {
   session: string | null;
@@ -12,12 +14,43 @@ const SessionContext = createContext<SessionContextValue | null>(null);
 export function SessionProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!supabase) {
+      return;
+    }
+
+    let isMounted = true;
+
+    void supabase.auth.getSession().then(({ data }) => {
+      if (!isMounted) {
+        return;
+      }
+      setSession(data.session?.user.email ?? 'authenticated-user');
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, authSession) => {
+      setSession(authSession?.user.email ?? null);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
   const value = useMemo<SessionContextValue>(
     () => ({
       session,
       signInWithGoogle: (sessionLabel) => setSession(sessionLabel ?? 'google-user'),
       signInWithApple: (sessionLabel) => setSession(sessionLabel ?? 'apple-user'),
-      signOut: () => setSession(null),
+      signOut: () => {
+        setSession(null);
+        if (supabase) {
+          void supabase.auth.signOut();
+        }
+      },
     }),
     [session]
   );
