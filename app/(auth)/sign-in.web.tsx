@@ -1,27 +1,15 @@
-import { GoogleSignin, isErrorWithCode, isSuccessResponse, statusCodes } from '@react-native-google-signin/google-signin';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { useSession } from '@/hooks/useSession';
+import { supabase } from '@/lib/supabase';
 
 export default function SignInWebScreen() {
-  const { signInWithGoogle } = useSession();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
-
-  useEffect(() => {
-    if (!webClientId) {
-      return;
-    }
-
-    GoogleSignin.configure({ webClientId });
-  }, [webClientId]);
-
   const handleGooglePress = async () => {
-    if (!webClientId) {
-      setErrorMessage('Missing env: EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID');
+    if (!supabase) {
+      setErrorMessage('Missing env: EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_ANON_KEY');
       return;
     }
 
@@ -29,20 +17,23 @@ export default function SignInWebScreen() {
       setIsSubmitting(true);
       setErrorMessage(null);
 
-      const response = await GoogleSignin.signIn();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+        },
+      });
 
-      if (!isSuccessResponse(response)) {
+      if (error) {
+        setErrorMessage(error.message || 'Supabase sign-in failed.');
         return;
       }
-
-      const sessionLabel = response.data.user.email || response.data.user.name || 'google-user';
-      signInWithGoogle(sessionLabel);
     } catch (error) {
-      if (isErrorWithCode(error) && error.code === statusCodes.SIGN_IN_CANCELLED) {
+      if (error instanceof Error) {
+        setErrorMessage(`Unexpected error: ${error.message}`);
         return;
       }
-
-      setErrorMessage('Google sign-in failed. Check EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID.');
+      setErrorMessage(`Unexpected error: ${String(error)}`);
     } finally {
       setIsSubmitting(false);
     }
