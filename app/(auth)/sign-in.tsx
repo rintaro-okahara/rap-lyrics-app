@@ -1,5 +1,6 @@
-import { GoogleSignin, isErrorWithCode, isSuccessResponse, statusCodes } from '@react-native-google-signin/google-signin';
-import { useEffect, useMemo, useState } from 'react';
+import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
+import { useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
@@ -8,21 +9,11 @@ export default function SignInScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
-  const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
   const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
   const missingConfig = useMemo(() => {
     const missing: string[] = [];
-
-    if (!webClientId) {
-      missing.push('EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID');
-    }
-
-    if (Platform.OS === 'ios' && !iosClientId) {
-      missing.push('EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID');
-    }
 
     if (!supabaseUrl) {
       missing.push('EXPO_PUBLIC_SUPABASE_URL');
@@ -37,18 +28,7 @@ export default function SignInScreen() {
     }
 
     return missing;
-  }, [iosClientId, supabaseAnonKey, supabaseUrl, webClientId]);
-
-  useEffect(() => {
-    if (missingConfig.length > 0) {
-      return;
-    }
-
-    GoogleSignin.configure({
-      webClientId,
-      iosClientId: iosClientId || undefined,
-    });
-  }, [iosClientId, missingConfig.length, webClientId]);
+  }, [supabaseAnonKey, supabaseUrl]);
 
   const handleGooglePress = async () => {
     if (missingConfig.length > 0) {
@@ -60,45 +40,52 @@ export default function SignInScreen() {
       setIsSubmitting(true);
       setErrorMessage(null);
 
-      if (Platform.OS === 'android') {
-        await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      }
-
-      const response = await GoogleSignin.signIn();
-
-      if (!isSuccessResponse(response)) {
-        return;
-      }
-
-      if (!response.data.idToken) {
-        setErrorMessage('Google idToken was not returned.');
-        return;
-      }
-
       if (!supabase) {
         setErrorMessage('Supabase client is not configured.');
         return;
       }
 
-      const { error } = await supabase.auth.signInWithIdToken({
+      const redirectTo = Linking.createURL('auth/callback');
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        token: response.data.idToken,
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+        },
       });
 
       if (error) {
         setErrorMessage(error.message || 'Supabase sign-in failed.');
+        return;
+      }
+
+      if (!data.url) {
+        setErrorMessage('Supabase did not return an OAuth URL.');
+        return;
+      }
+
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+
+      if (result.type !== 'success') {
+        return;
+      }
+
+      const parsed = Linking.parse(result.url);
+      const code = typeof parsed.queryParams?.code === 'string' ? parsed.queryParams.code : null;
+
+      if (!code) {
+        setErrorMessage('No auth code was returned from OAuth callback.');
+        return;
+      }
+
+      const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+      if (exchangeError) {
+        setErrorMessage(exchangeError.message || 'Failed to create Supabase session.');
       }
     } catch (error) {
-      if (isErrorWithCode(error) && error.code === statusCodes.SIGN_IN_CANCELLED) {
-        return;
-      }
-
-      if (isErrorWithCode(error) && error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-        setErrorMessage('Google Play Services is not available on this device.');
-        return;
-      }
-
-      setErrorMessage('Google sign-in failed. Check app.json plugin and env values.');
+      const message = error instanceof Error ? error.message : String(error);
+      setErrorMessage(`Google OAuth failed: ${message}`);
     } finally {
       setIsSubmitting(false);
     }
