@@ -4,8 +4,6 @@ import { supabase } from '@/lib/supabase';
 
 type SessionContextValue = {
   session: string | null;
-  signInWithGoogle: (sessionLabel?: string) => void;
-  signInWithApple: (sessionLabel?: string) => void;
   signOut: () => void;
 };
 
@@ -43,8 +41,6 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const value = useMemo<SessionContextValue>(
     () => ({
       session,
-      signInWithGoogle: (sessionLabel) => setSession(sessionLabel ?? 'google-user'),
-      signInWithApple: (sessionLabel) => setSession(sessionLabel ?? 'apple-user'),
       signOut: () => {
         setSession(null);
         if (supabase) {
