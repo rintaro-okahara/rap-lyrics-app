@@ -2,16 +2,16 @@ import { GoogleSignin, isErrorWithCode, isSuccessResponse, statusCodes } from '@
 import { useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { useSession } from '@/hooks/useSession';
+import { supabase } from '@/lib/supabase';
 
 export default function SignInScreen() {
-  const { signInWithGoogle, signInWithApple } = useSession();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
   const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
-  const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
+  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
   const missingConfig = useMemo(() => {
     const missing: string[] = [];
@@ -24,12 +24,20 @@ export default function SignInScreen() {
       missing.push('EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID');
     }
 
-    if (Platform.OS === 'android' && !androidClientId) {
-      missing.push('EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID');
+    if (!supabaseUrl) {
+      missing.push('EXPO_PUBLIC_SUPABASE_URL');
+    }
+
+    if (!supabaseAnonKey) {
+      missing.push('EXPO_PUBLIC_SUPABASE_ANON_KEY');
+    }
+
+    if (!supabase) {
+      missing.push('Supabase client init failed');
     }
 
     return missing;
-  }, [androidClientId, iosClientId, webClientId]);
+  }, [iosClientId, supabaseAnonKey, supabaseUrl, webClientId]);
 
   useEffect(() => {
     if (missingConfig.length > 0) {
@@ -67,8 +75,19 @@ export default function SignInScreen() {
         return;
       }
 
-      const sessionLabel = response.data.user.email || response.data.user.name || 'google-user';
-      signInWithGoogle(sessionLabel);
+      if (!supabase) {
+        setErrorMessage('Supabase client is not configured.');
+        return;
+      }
+
+      const { error } = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: response.data.idToken,
+      });
+
+      if (error) {
+        setErrorMessage(error.message || 'Supabase sign-in failed.');
+      }
     } catch (error) {
       if (isErrorWithCode(error) && error.code === statusCodes.SIGN_IN_CANCELLED) {
         return;
@@ -98,7 +117,10 @@ export default function SignInScreen() {
       </Pressable>
 
       {Platform.OS === 'ios' ? (
-        <Pressable onPress={() => signInWithApple()} style={[styles.button, styles.appleButton]}>
+        <Pressable
+          disabled
+          style={[styles.button, styles.appleButton, styles.buttonDisabled]}
+          onPress={() => undefined}>
           <Text style={styles.buttonText}>Continue with Apple</Text>
         </Pressable>
       ) : null}
