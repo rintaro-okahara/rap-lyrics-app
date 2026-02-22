@@ -1,30 +1,13 @@
-import { GoogleSignin, isErrorWithCode, isSuccessResponse, statusCodes } from '@react-native-google-signin/google-signin';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
-import { useSession } from '@/hooks/useSession';
 
 export default function SignInWebScreen() {
-  const { signInWithGoogle } = useSession();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
-
-  useEffect(() => {
-    if (!webClientId) {
-      return;
-    }
-
-    GoogleSignin.configure({ webClientId });
-  }, [webClientId]);
-
   const handleGooglePress = async () => {
-    if (!webClientId) {
-      setErrorMessage('Missing env: EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID');
-      return;
-    }
     if (!supabase) {
       setErrorMessage('Missing env: EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_ANON_KEY');
       return;
@@ -34,36 +17,23 @@ export default function SignInWebScreen() {
       setIsSubmitting(true);
       setErrorMessage(null);
 
-      const response = await GoogleSignin.signIn();
-
-      if (!isSuccessResponse(response)) {
-        return;
-      }
-
-      if (!response.data.idToken) {
-        setErrorMessage('Google idToken was not returned.');
-        return;
-      }
-
-      const { data, error } = await supabase.auth.signInWithIdToken({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        token: response.data.idToken,
+        options: {
+          redirectTo: window.location.origin,
+        },
       });
 
       if (error) {
         setErrorMessage(error.message || 'Supabase sign-in failed.');
         return;
       }
-
-      const sessionLabel =
-        data.user?.email || response.data.user.email || response.data.user.name || 'google-user';
-      signInWithGoogle(sessionLabel);
     } catch (error) {
-      if (isErrorWithCode(error) && error.code === statusCodes.SIGN_IN_CANCELLED) {
+      if (error instanceof Error) {
+        setErrorMessage(`Unexpected error: ${error.message}`);
         return;
       }
-
-      setErrorMessage('Google or Supabase sign-in failed. Check env values and provider settings.');
+      setErrorMessage(`Unexpected error: ${String(error)}`);
     } finally {
       setIsSubmitting(false);
     }
