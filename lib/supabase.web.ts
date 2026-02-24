@@ -1,4 +1,3 @@
-import * as SecureStore from 'expo-secure-store';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -6,21 +5,24 @@ const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
-const ExpoSecureStoreAdapter = {
-  getItem: (key: string) => SecureStore.getItemAsync(key),
-  setItem: (key: string, value: string) =>
-    SecureStore.setItemAsync(key, value, {
-      keychainAccessible: SecureStore.WHEN_UNLOCKED,
-    }),
-  removeItem: (key: string) => SecureStore.deleteItemAsync(key),
+const WebStorageAdapter = {
+  getItem: (key: string) => Promise.resolve(globalThis?.localStorage?.getItem(key) ?? null),
+  setItem: (key: string, value: string) => {
+    globalThis?.localStorage?.setItem(key, value);
+    return Promise.resolve();
+  },
+  removeItem: (key: string) => {
+    globalThis?.localStorage?.removeItem(key);
+    return Promise.resolve();
+  },
 };
 
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl as string, supabaseAnonKey as string, {
       auth: {
-        storage: ExpoSecureStoreAdapter as any,
+        storage: WebStorageAdapter as any,
         flowType: 'pkce',
-        detectSessionInUrl: false,
+        detectSessionInUrl: true,
         persistSession: true,
         autoRefreshToken: true,
       },
