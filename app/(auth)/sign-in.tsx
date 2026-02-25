@@ -1,4 +1,5 @@
 import * as Linking from 'expo-linking';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { useMemo, useState } from 'react';
@@ -6,6 +7,8 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { supabase } from '@/lib/supabase';
 
 WebBrowser.maybeCompleteAuthSession();
+
+type CodedError = Error & { code?: string };
 
 export default function SignInScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -96,6 +99,64 @@ export default function SignInScreen() {
     }
   };
 
+  const handleApplePress = async () => {
+    if (Platform.OS !== 'ios') {
+      return;
+    }
+
+    if (missingConfig.length > 0) {
+      setErrorMessage(`Missing env: ${missingConfig.join(', ')}`);
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setErrorMessage(null);
+
+      if (!supabase) {
+        setErrorMessage('Supabase client is not configured.');
+        return;
+      }
+
+      const isAppleSignInAvailable = await AppleAuthentication.isAvailableAsync();
+      if (!isAppleSignInAvailable) {
+        setErrorMessage('Apple Sign In is not available on this device.');
+        return;
+      }
+
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        setErrorMessage('Apple did not return an identity token.');
+        return;
+      }
+
+      const { error } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken,
+      });
+
+      if (error) {
+        setErrorMessage(error.message || 'Failed to create Supabase session.');
+      }
+    } catch (error) {
+      const codedError = error as CodedError;
+      if (codedError.code === 'ERR_REQUEST_CANCELED') {
+        return;
+      }
+
+      const message = error instanceof Error ? error.message : String(error);
+      setErrorMessage(`Apple sign-in failed: ${message}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Sign in</Text>
@@ -110,9 +171,9 @@ export default function SignInScreen() {
 
       {Platform.OS === 'ios' ? (
         <Pressable
-          disabled
-          style={[styles.button, styles.appleButton, styles.buttonDisabled]}
-          onPress={() => undefined}>
+          disabled={isSubmitting}
+          style={[styles.button, styles.appleButton, isSubmitting ? styles.buttonDisabled : null]}
+          onPress={handleApplePress}>
           <Text style={styles.buttonText}>Continue with Apple</Text>
         </Pressable>
       ) : null}
