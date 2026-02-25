@@ -1,9 +1,11 @@
 import * as Linking from 'expo-linking';
+import { makeRedirectUri } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-
 import { supabase } from '@/lib/supabase';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function SignInScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -45,7 +47,10 @@ export default function SignInScreen() {
         return;
       }
 
-      const redirectTo = Linking.createURL('auth/callback');
+      const redirectTo = makeRedirectUri({
+        scheme: 'rap-lyrics-app',
+        path: 'auth/callback',
+      });
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',

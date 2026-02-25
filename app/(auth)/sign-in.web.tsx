@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase.web';
 
 export default function SignInWebScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
