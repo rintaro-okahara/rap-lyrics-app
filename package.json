@@ -19,7 +19,6 @@
     "@expo/vector-icons": "^15.0.3",
     "@react-navigation/bottom-tabs": "^7.3.10",
     "@react-navigation/elements": "^2.3.8",
-    "@react-navigation/native": "^7.1.6",
     "@supabase/supabase-js": "^2.97.0",
     "expo": "~55.0.0",
     "expo-auth-session": "~55.0.6",
@@ -55,5 +54,8 @@
     "eslint": "^9.25.0",
     "eslint-config-expo": "~55.0.0",
     "typescript": "~5.9.2"
+  },
+  "overrides": {
+    "@react-navigation/native": "7.1.28"
   }
 }
