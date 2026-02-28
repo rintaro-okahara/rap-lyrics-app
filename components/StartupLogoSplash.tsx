@@ -56,7 +56,7 @@ export function StartupLogoSplash({ onFinished }: StartupLogoSplashProps) {
     <Animated.View style={[styles.overlay, containerAnimatedStyle]}>
       <Animated.View style={logoAnimatedStyle}>
         <Image
-          source={require('@/assets/images/splash-icon.png')}
+          source={require('@/assets/images/splash-icon2.png')}
           contentFit="contain"
           style={styles.logo}
         />
