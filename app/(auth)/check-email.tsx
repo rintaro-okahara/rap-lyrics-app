@@ -1,7 +1,7 @@
 import { makeRedirectUri } from 'expo-auth-session';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
 
@@ -55,7 +55,10 @@ export default function CheckEmailScreen() {
         return;
       }
 
-      const emailRedirectTo = makeRedirectUri({ scheme: 'rap-lyrics-app', path: 'sign-in' });
+      const emailRedirectTo =
+        Platform.OS === 'web'
+          ? `${globalThis.location.origin}/sign-in`
+          : makeRedirectUri({ scheme: 'rap-lyrics-app', path: 'sign-in' });
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email,

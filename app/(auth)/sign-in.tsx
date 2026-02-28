@@ -200,6 +200,13 @@ export default function SignInScreen() {
 
       <Pressable
         disabled={isSubmitting}
+        onPress={() => router.push('/(auth)/sign-in-email')}
+        style={[styles.button, styles.emailSignInButton, isSubmitting ? styles.buttonDisabled : null]}>
+        <Text style={styles.buttonText}>Sign in with Email</Text>
+      </Pressable>
+
+      <Pressable
+        disabled={isSubmitting}
         onPress={() => router.push('/(auth)/sign-up')}
         style={[styles.button, styles.emailButton, isSubmitting ? styles.buttonDisabled : null]}>
         <Text style={styles.buttonText}>Sign Up with Email</Text>
@@ -252,6 +259,9 @@ const styles = StyleSheet.create({
   },
   emailButton: {
     backgroundColor: '#16a34a',
+  },
+  emailSignInButton: {
+    backgroundColor: '#0f766e',
   },
   googleButton: {
     backgroundColor: '#2563eb',

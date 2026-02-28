@@ -1,16 +1,14 @@
-import { makeRedirectUri } from 'expo-auth-session';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
 
-export default function SignUpScreen() {
-  const params = useLocalSearchParams<{ email?: string }>();
-  const [email, setEmail] = useState(() => (typeof params.email === 'string' ? params.email : ''));
-  const [password, setPassword] = useState('');
+export default function SignInEmailScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -33,14 +31,13 @@ export default function SignUpScreen() {
     return missing;
   }, [supabaseAnonKey, supabaseUrl]);
 
-  const handleSignUp = async () => {
+  const handleEmailSignIn = async () => {
     if (missingConfig.length > 0) {
       setErrorMessage(`Missing env: ${missingConfig.join(', ')}`);
       return;
     }
 
-    const normalizedEmail = email.trim();
-    if (!normalizedEmail || !password) {
+    if (!email.trim() || !password) {
       setErrorMessage('Please enter both email and password.');
       return;
     }
@@ -54,27 +51,17 @@ export default function SignUpScreen() {
         return;
       }
 
-      const emailRedirectTo =
-        Platform.OS === 'web'
-          ? `${globalThis.location.origin}/sign-in`
-          : makeRedirectUri({ scheme: 'rap-lyrics-app', path: 'sign-in' });
-      const { error } = await supabase.auth.signUp({
-        email: normalizedEmail,
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
         password,
-        options: {
-          emailRedirectTo,
-        },
       });
 
       if (error) {
-        setErrorMessage(error.message || 'Failed to create account.');
-        return;
+        setErrorMessage(error.message || 'Email sign-in failed.');
       }
-
-      router.replace({ pathname: '/(auth)/check-email', params: { email: normalizedEmail } });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      setErrorMessage(`Sign-up failed: ${message}`);
+      setErrorMessage(`Email sign-in failed: ${message}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -82,8 +69,8 @@ export default function SignUpScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Create account</Text>
-      <Text style={styles.subtitle}>確認メールを送信して本認証します。</Text>
+      <Text style={styles.title}>Sign in with Email</Text>
+      <Text style={styles.subtitle}>登録済みのメールアドレスでログインします。</Text>
 
       <TextInput
         autoCapitalize="none"
@@ -99,7 +86,7 @@ export default function SignUpScreen() {
 
       <TextInput
         autoCapitalize="none"
-        autoComplete="password-new"
+        autoComplete="password"
         editable={!isSubmitting}
         onChangeText={setPassword}
         placeholder="Password"
@@ -111,13 +98,13 @@ export default function SignUpScreen() {
 
       <Pressable
         disabled={isSubmitting}
-        onPress={handleSignUp}
+        onPress={handleEmailSignIn}
         style={[styles.button, isSubmitting ? styles.buttonDisabled : null]}>
-        <Text style={styles.buttonText}>Create account</Text>
+        <Text style={styles.buttonText}>Sign in with Email</Text>
       </Pressable>
 
       <Pressable disabled={isSubmitting} onPress={() => router.back()} style={styles.textButton}>
-        <Text style={styles.textButtonText}>Back to sign in</Text>
+        <Text style={styles.textButtonText}>Back</Text>
       </Pressable>
 
       {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
@@ -158,7 +145,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     alignItems: 'center',
-    backgroundColor: '#16a34a',
+    backgroundColor: '#0f766e',
   },
   buttonText: {
     color: '#ffffff',

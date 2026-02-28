@@ -1,16 +1,23 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { supabase } from '@/lib/supabase.web';
 
-export default function SignInWebScreen() {
+export default function SignInEmailWebScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
-  const handleGooglePress = async () => {
+  const handleEmailSignIn = async () => {
     if (!supabase) {
       setErrorMessage('Missing env: EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_ANON_KEY');
+      return;
+    }
+
+    if (!email.trim() || !password) {
+      setErrorMessage('Please enter both email and password.');
       return;
     }
 
@@ -18,16 +25,13 @@ export default function SignInWebScreen() {
       setIsSubmitting(true);
       setErrorMessage(null);
 
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: window.location.origin,
-        },
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
       });
 
       if (error) {
-        setErrorMessage(error.message || 'Supabase sign-in failed.');
-        return;
+        setErrorMessage(error.message || 'Email sign-in failed.');
       }
     } catch (error) {
       if (error instanceof Error) {
@@ -44,29 +48,44 @@ export default function SignInWebScreen() {
     <View style={styles.page}>
       <View style={styles.card}>
         <Text style={styles.eyebrow}>Rap Lyrics App</Text>
-        <Text style={styles.title}>Sign in on Web</Text>
-        <Text style={styles.subtitle}>アカウント作成してメール確認を行ってください。</Text>
+        <Text style={styles.title}>Sign in with Email</Text>
+        <Text style={styles.subtitle}>登録済みのメールアドレスでログインします。</Text>
+
+        <TextInput
+          autoCapitalize="none"
+          autoComplete="email"
+          editable={!isSubmitting}
+          keyboardType="email-address"
+          onChangeText={setEmail}
+          placeholder="Email"
+          placeholderTextColor="#94a3b8"
+          style={styles.input}
+          value={email}
+        />
+
+        <TextInput
+          autoCapitalize="none"
+          autoComplete="password"
+          editable={!isSubmitting}
+          onChangeText={setPassword}
+          placeholder="Password"
+          placeholderTextColor="#94a3b8"
+          secureTextEntry
+          style={styles.input}
+          value={password}
+        />
 
         <Pressable
           disabled={isSubmitting}
-          onPress={() => router.push('/(auth)/sign-in-email')}
-          style={[styles.button, styles.emailSignInButton, isSubmitting ? styles.buttonDisabled : null]}>
+          onPress={handleEmailSignIn}
+          style={[styles.button, isSubmitting ? styles.buttonDisabled : null]}>
           <Text style={styles.buttonText}>Sign in with Email</Text>
         </Pressable>
 
-        <Pressable
-          disabled={isSubmitting}
-          onPress={() => router.push('/(auth)/sign-up')}
-          style={[styles.button, styles.emailButton, isSubmitting ? styles.buttonDisabled : null]}>
-          <Text style={styles.buttonText}>Sign Up with Email</Text>
+        <Pressable disabled={isSubmitting} onPress={() => router.back()} style={styles.textButton}>
+          <Text style={styles.textButtonText}>Back</Text>
         </Pressable>
 
-        <Pressable
-          disabled={isSubmitting}
-          onPress={handleGooglePress}
-          style={[styles.button, isSubmitting ? styles.buttonDisabled : null]}>
-          <Text style={styles.buttonText}>Continue with Google</Text>
-        </Pressable>
         {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
       </View>
     </View>
@@ -107,17 +126,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 10,
   },
+  input: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    color: '#0f172a',
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+  },
   button: {
     borderRadius: 12,
-    backgroundColor: '#1d4ed8',
+    backgroundColor: '#0f766e',
     paddingVertical: 14,
     alignItems: 'center',
-  },
-  emailButton: {
-    backgroundColor: '#16a34a',
-  },
-  emailSignInButton: {
-    backgroundColor: '#0f766e',
   },
   buttonText: {
     color: '#ffffff',
@@ -126,6 +149,15 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.7,
+  },
+  textButton: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  textButtonText: {
+    color: '#1d4ed8',
+    fontSize: 14,
+    fontWeight: '600',
   },
   errorText: {
     marginTop: 8,
