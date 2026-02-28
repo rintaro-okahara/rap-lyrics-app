@@ -1,10 +1,12 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import { makeRedirectUri } from 'expo-auth-session';
+import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+
 import { supabase } from '@/lib/supabase';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -182,6 +184,7 @@ export default function SignInScreen() {
       setIsSubmitting(false);
     }
   };
+
   useEffect(() => {
     if (!url) {
       return;
@@ -194,6 +197,20 @@ export default function SignInScreen() {
     <View style={styles.container}>
       <Text style={styles.title}>Sign in</Text>
       <Text style={styles.subtitle}>iOS / Android で共通UI。Appleは iOS のみ表示。</Text>
+
+      <Pressable
+        disabled={isSubmitting}
+        onPress={() => router.push('/(auth)/sign-in-email')}
+        style={[styles.button, styles.emailSignInButton, isSubmitting ? styles.buttonDisabled : null]}>
+        <Text style={styles.buttonText}>Sign in with Email</Text>
+      </Pressable>
+
+      <Pressable
+        disabled={isSubmitting}
+        onPress={() => router.push('/(auth)/sign-up')}
+        style={[styles.button, styles.emailButton, isSubmitting ? styles.buttonDisabled : null]}>
+        <Text style={styles.buttonText}>Sign Up with Email</Text>
+      </Pressable>
 
       <Pressable
         disabled={isSubmitting}
@@ -239,6 +256,12 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     alignItems: 'center',
+  },
+  emailButton: {
+    backgroundColor: '#16a34a',
+  },
+  emailSignInButton: {
+    backgroundColor: '#0f766e',
   },
   googleButton: {
     backgroundColor: '#2563eb',
