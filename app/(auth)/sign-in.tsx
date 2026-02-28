@@ -1,8 +1,9 @@
-import * as Linking from 'expo-linking';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
-import { useMemo, useState } from 'react';
+import * as Linking from 'expo-linking';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { supabase } from '@/lib/supabase';
 
@@ -13,6 +14,7 @@ type CodedError = Error & { code?: string };
 export default function SignInScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const url = Linking.useURL();
 
   const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -35,6 +37,44 @@ export default function SignInScreen() {
     return missing;
   }, [supabaseAnonKey, supabaseUrl]);
 
+  const createSessionFromUrl = useCallback(async (callbackUrl: string) => {
+    if (!supabase) {
+      setErrorMessage('Supabase client is not configured.');
+      return;
+    }
+
+    const { params, errorCode } = QueryParams.getQueryParams(callbackUrl);
+    if (errorCode) {
+      setErrorMessage(errorCode);
+      return;
+    }
+
+    const code = typeof params.code === 'string' ? params.code : null;
+    if (code) {
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      if (error) {
+        setErrorMessage(error.message || 'Failed to create Supabase session.');
+      }
+      return;
+    }
+
+    const accessToken = typeof params.access_token === 'string' ? params.access_token : null;
+    const refreshToken = typeof params.refresh_token === 'string' ? params.refresh_token : null;
+    if (accessToken && refreshToken) {
+      const { error } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+
+      if (error) {
+        setErrorMessage(error.message || 'Failed to create Supabase session.');
+      }
+      return;
+    }
+
+    setErrorMessage('No auth code or tokens were returned from OAuth callback.');
+  }, []);
+
   const handleGooglePress = async () => {
     if (missingConfig.length > 0) {
       setErrorMessage(`Missing env: ${missingConfig.join(', ')}`);
@@ -50,10 +90,7 @@ export default function SignInScreen() {
         return;
       }
 
-      const redirectTo = makeRedirectUri({
-        scheme: 'rap-lyrics-app',
-        path: 'auth/callback',
-      });
+      const redirectTo = makeRedirectUri({ scheme: 'rap-lyrics-app', path: 'sign-in' });
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -74,23 +111,12 @@ export default function SignInScreen() {
       }
 
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
-
-      if (result.type !== 'success') {
+      if (result.type === 'success') {
+        await createSessionFromUrl(result.url);
         return;
       }
 
-      const parsed = Linking.parse(result.url);
-      const code = typeof parsed.queryParams?.code === 'string' ? parsed.queryParams.code : null;
-
-      if (!code) {
-        setErrorMessage('No auth code was returned from OAuth callback.');
-        return;
-      }
-
-      const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-      if (exchangeError) {
-        setErrorMessage(exchangeError.message || 'Failed to create Supabase session.');
-      }
+      setErrorMessage('Google sign-in was cancelled.');
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setErrorMessage(`Google OAuth failed: ${message}`);
@@ -156,6 +182,13 @@ export default function SignInScreen() {
       setIsSubmitting(false);
     }
   };
+  useEffect(() => {
+    if (!url) {
+      return;
+    }
+
+    void createSessionFromUrl(url);
+  }, [createSessionFromUrl, url]);
 
   return (
     <View style={styles.container}>

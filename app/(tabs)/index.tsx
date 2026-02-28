@@ -1,16 +1,21 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
 
 import { useSession } from '@/hooks/useSession';
 
 export default function HomeScreen() {
   const { session, signOut } = useSession();
+  const handleSignOut = () => {
+    signOut();
+    router.replace('/(auth)/sign-in');
+  };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Home</Text>
       <Text style={styles.subtitle}>ログイン済み: {session}</Text>
 
-      <Pressable onPress={signOut} style={styles.button}>
+      <Pressable onPress={handleSignOut} style={styles.button}>
         <Text style={styles.buttonText}>Sign out</Text>
       </Pressable>
     </View>
