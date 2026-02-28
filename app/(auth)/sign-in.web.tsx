@@ -1,11 +1,48 @@
+import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { supabase } from '@/lib/supabase.web';
 
 export default function SignInWebScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  const handleEmailPasswordSignIn = async () => {
+    if (!supabase) {
+      setErrorMessage('Missing env: EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_ANON_KEY');
+      return;
+    }
+
+    if (!email.trim() || !password) {
+      setErrorMessage('Please enter both email and password.');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setErrorMessage(null);
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      if (error) {
+        setErrorMessage(error.message || 'Email sign-in failed.');
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        setErrorMessage(`Unexpected error: ${error.message}`);
+        return;
+      }
+      setErrorMessage(`Unexpected error: ${String(error)}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleGooglePress = async () => {
     if (!supabase) {
@@ -44,7 +81,45 @@ export default function SignInWebScreen() {
       <View style={styles.card}>
         <Text style={styles.eyebrow}>Rap Lyrics App</Text>
         <Text style={styles.title}>Sign in on Web</Text>
-        <Text style={styles.subtitle}>Web版は独立したUIで管理できます。</Text>
+        <Text style={styles.subtitle}>Email/Password または OAuth でサインインできます。</Text>
+
+        <TextInput
+          autoCapitalize="none"
+          autoComplete="email"
+          editable={!isSubmitting}
+          keyboardType="email-address"
+          onChangeText={setEmail}
+          placeholder="Email"
+          placeholderTextColor="#94a3b8"
+          style={styles.input}
+          value={email}
+        />
+
+        <TextInput
+          autoCapitalize="none"
+          autoComplete="password"
+          editable={!isSubmitting}
+          onChangeText={setPassword}
+          placeholder="Password"
+          placeholderTextColor="#94a3b8"
+          secureTextEntry
+          style={styles.input}
+          value={password}
+        />
+
+        <Pressable
+          disabled={isSubmitting}
+          onPress={handleEmailPasswordSignIn}
+          style={[styles.button, styles.emailButton, isSubmitting ? styles.buttonDisabled : null]}>
+          <Text style={styles.buttonText}>Sign in with Email</Text>
+        </Pressable>
+
+        <Pressable
+          disabled={isSubmitting}
+          onPress={() => router.push({ pathname: '/(auth)/sign-up', params: { email: email.trim() } })}
+          style={[styles.textButton, isSubmitting ? styles.buttonDisabled : null]}>
+          <Text style={styles.textButtonText}>Create account</Text>
+        </Pressable>
 
         <Pressable
           disabled={isSubmitting}
@@ -90,14 +165,35 @@ const styles = StyleSheet.create({
   subtitle: {
     color: '#334155',
     fontSize: 14,
-    marginBottom: 12,
+    marginBottom: 8,
+  },
+  input: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    color: '#0f172a',
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
   },
   button: {
-    marginTop: 8,
     borderRadius: 12,
     backgroundColor: '#1d4ed8',
     paddingVertical: 14,
     alignItems: 'center',
+  },
+  emailButton: {
+    backgroundColor: '#16a34a',
+  },
+  textButton: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  textButtonText: {
+    color: '#1d4ed8',
+    fontSize: 14,
+    fontWeight: '600',
   },
   buttonText: {
     color: '#ffffff',
