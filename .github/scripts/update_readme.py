@@ -65,9 +65,10 @@ message = client.messages.create(
 new_section = message.content[0].text.strip()
 new_block = f"<!-- TREE_START -->\n{new_section}\n<!-- TREE_END -->"
 
+# repl に関数を使うことで、Claude の返答に含まれる \ が re.sub に誤解釈されるのを防ぐ
 updated = re.sub(
     r"<!-- TREE_START -->.*?<!-- TREE_END -->",
-    new_block,
+    lambda _: new_block,
     readme,
     flags=re.DOTALL,
 )

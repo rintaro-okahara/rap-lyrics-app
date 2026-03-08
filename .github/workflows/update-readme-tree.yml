@@ -7,6 +7,8 @@ on:
 
 jobs:
   update-tree:
+    # bot自身のコミットによるループを防ぐ
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -24,7 +26,7 @@ jobs:
                --dirsfirst -L 3 > /tmp/tree.txt
 
       - name: Install Anthropic SDK
-        run: pip install anthropic
+        run: pip install --quiet anthropic
 
       - name: Run Claude to update README
         env:
