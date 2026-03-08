@@ -5,7 +5,16 @@ import anthropic
 tree = open("/tmp/tree.txt").read()
 readme = open("README.md").read()
 
-client = anthropic.Anthropic()
+# ANTHROPIC_API_KEY があればそれを使い、なければ CLAUDE_CODE_OAUTH_TOKEN を試みる
+api_key = os.environ.get("ANTHROPIC_API_KEY")
+oauth_token = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")
+
+if api_key:
+    client = anthropic.Anthropic(api_key=api_key)
+elif oauth_token:
+    client = anthropic.Anthropic(auth_token=oauth_token)
+else:
+    raise RuntimeError("ANTHROPIC_API_KEY または CLAUDE_CODE_OAUTH_TOKEN を GitHub Secrets に設定してください")
 
 message = client.messages.create(
     model="claude-opus-4-6",
