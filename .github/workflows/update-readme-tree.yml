@@ -1,0 +1,176 @@
+name: Update README Tree
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  update-tree:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+      issues: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install tree
+        run: sudo apt-get install -y tree
+
+      - name: Generate directory tree
+        id: generate-tree
+        run: |
+          tree -I 'node_modules|.git|.expo|dist|build|coverage|.next|.turbo' \
+               --dirsfirst -L 3 > /tmp/tree.txt
+          echo "tree_content<<TREE_EOF" >> $GITHUB_OUTPUT
+          cat /tmp/tree.txt >> $GITHUB_OUTPUT
+          echo "TREE_EOF" >> $GITHUB_OUTPUT
+
+      - name: Run Claude to update README
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_tools: "Read,Edit"
+          prompt: |
+            # Claude Project Instructions
+
+            This repository uses Claude Code to help maintain the README documentation.
+
+            Claude's responsibility is to keep `README.md` accurate **without expanding it unnecessarily**.
+
+            Claude must only update README when repository structure meaningfully changes.
+
+            ---
+
+            # Core Rule: Only Modify What Changed
+
+            Claude must **only update sections affected by the current change**.
+
+            Rules:
+
+            - Never rewrite the entire README
+            - Never reformat unrelated sections
+            - Never reorder sections
+            - Only modify lines that are actually outdated
+
+            ---
+
+            # Purpose of README Updates
+
+            The README should explain **project structure**, not every file.
+
+            Claude should focus on:
+
+            - helping new contributors understand the repository
+            - explaining the high-level architecture
+            - keeping documentation concise
+
+            Claude must avoid turning the README into a file index.
+
+            ---
+
+            # What SHOULD be documented
+
+            ## 1. Top-level directories
+
+            Document important root directories that describe the architecture.
+
+            Examples: app/, src/, components/, lib/, docs/, scripts/, supabase/, prisma/, public/
+
+            Each directory must have **one short explanation line only**.
+
+            ## 2. Key configuration files
+
+            Important configuration files may be documented (package.json, tsconfig.json, etc.)
+
+            Only describe **purpose**, not internal details.
+
+            ## 3. Key infrastructure or entry files
+
+            Limit to **2–3 representative files per directory**.
+
+            ---
+
+            # What MUST NOT be documented
+
+            Claude must **never list individual files for routine implementation**.
+
+            Ignore: UI components, hooks, small utilities, tests, generated files, build artifacts.
+
+            Patterns to ignore: *.test.ts, *.spec.ts, node_modules/, .next/, dist/, *.lock
+
+            ---
+
+            # Documentation Size Limits
+
+            - Document **top-level directories only**
+            - Inside directories list **maximum 3 representative files**
+            - Never list every file
+            - Every explanation must be **one short sentence**
+
+            ---
+
+            # README Sections Claude May Modify
+
+            Claude may only update the following sections:
+
+            - `## Project Structure`
+            - `## Key Files`
+
+            Claude must **not modify any other section** unless explicitly instructed.
+
+            ---
+
+            # Style Rules
+
+            - Keep explanations short
+            - Prefer bullet lists or tree format with inline comments
+            - Maintain existing README tone
+            - Prefer minimal diffs
+            - Avoid unnecessary wording changes
+
+            ---
+
+            # Safety Rules
+
+            If repository changes are unclear:
+
+            - Leave a TODO comment in the section
+            - Do not guess explanations
+            - Do not fabricate architecture descriptions
+
+            ---
+
+            # Task
+
+            The current directory tree of this repository is:
+
+            ```
+            ${{ steps.generate-tree.outputs.tree_content }}
+            ```
+
+            Update only the `## Project Structure` section in `README.md`.
+
+            The section is marked with `<!-- TREE_START -->` and `<!-- TREE_END -->` HTML comments.
+            Replace everything between those two markers with a curated, annotated tree view.
+
+            - Show only meaningful top-level directories and a few key files
+            - Add a short inline description for each item shown (use `#` comment style inside the code block)
+            - Do not list every file — select the most architecturally significant ones
+            - Do not modify anything outside the `<!-- TREE_START -->` and `<!-- TREE_END -->` markers
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: update README project structure [skip ci]"
+            git push
+          fi
