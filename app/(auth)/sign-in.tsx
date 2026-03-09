@@ -92,7 +92,7 @@ export default function SignInScreen() {
         return;
       }
 
-      const redirectTo = makeRedirectUri({ scheme: 'rap-lyrics-app', path: 'sign-in' });
+      const redirectTo = makeRedirectUri();
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
