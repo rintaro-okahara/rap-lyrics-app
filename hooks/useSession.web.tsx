@@ -23,7 +23,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       if (!isMounted) {
         return;
       }
-      setSession(data.session?.user.email ?? 'authenticated-user');
+      setSession(data.session?.user.email ?? null);
     });
 
     const {
